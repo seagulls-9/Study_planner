@@ -1,7 +1,20 @@
-tasks = []
-def add_task(tasks)
+
+def load_tasks():
+    tasks = []
+
+    file = open("tasks.txt", "r")
+
+    for line in file:
+        tasks.append(line.strip())
+
+    file.close()
+
+    return tasks
+tasks = load_tasks()
+def add_task(tasks):
     task = input("Enter a task: ")
-        tasks.append(task)
+    tasks.append(task)
+    save_tasks(tasks)
 def view_tasks(tasks):
     for i in range(len(tasks)):
         print(f"{i +1}. {tasks[i]}")
@@ -10,9 +23,17 @@ def complete_tasks(tasks):
 
     if 0 <= comptask < len(tasks):
         tasks.pop(comptask)
+        save_tasks(tasks)
         print("Task removed. Well done!")
     else:
         print("Invalid task number.")
+def save_tasks(tasks):
+    file = open("tasks.txt", "w")
+
+    for task in tasks:
+        file.write(task + "\n")
+
+    file.close()
 while True:
     print("--- Study Planner ---")
     print("1. Add Task")
@@ -28,7 +49,7 @@ while True:
     elif choice == "2":
         view_tasks(tasks)
     
-    elif choice == "3"
+    elif choice == "3":
         complete_tasks(tasks)
 
     elif choice == "4":
