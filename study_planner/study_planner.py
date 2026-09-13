@@ -1,3 +1,4 @@
+from datetime import datetime
 def clear_tasks(tasks):
     tasks.clear()
     save_tasks(tasks)
@@ -24,8 +25,12 @@ def view_tasks(tasks):
     if len(tasks) == 0:
         print("No tasks available.")
     else:
+        today = datetime.today()
         for i in range(len(tasks)):
-            print(f"{i + 1}. {tasks[i]}")
+            date_part = tasks[i].split(" - ")[0]
+            due_date = datetime.strptime(date_part, "%Y-%m-%d")
+            days_left = (due_date - today).days
+            print(f"{i + 1}. {tasks[i]} ({days_left} days left)")
 def complete_tasks(tasks):
     comptask = int(input("What is the number of the completed task? ")) - 1
 
