@@ -18,6 +18,27 @@ def load_tasks():
 
     file.close()
 
+    return tasks
+
+window = tk.Tk()
+window.title("study planner")
+window.geometry("500x400")
+
+due_label = tk.Label(window, text="Due Date (YYYY-MM-DD)")
+due_label.pack()
+
+due_date_entry = tk.Entry(window)
+due_date_entry.pack()
+
+task_label = tk.Label(window, text="Task")
+task_label.pack()
+
+task_entry = tk.Entry(window)
+task_entry.pack()
+
+task_list = tk.Listbox(window)
+task_list.pack(fill="both", expand=True)
+
 tasks = load_tasks()
 
 for task in tasks:
@@ -26,7 +47,8 @@ for task in tasks:
 def refresh_list():
     task_list.delete(0, tk.END)
     for task in tasks:
-        task_list.insert(tk.end, task)
+        task_list.insert(tk.END, task)
+
 def complete_task_gui():
     selected = task_list.curselection()
 
@@ -43,22 +65,11 @@ def add_task_gui():
     tasks.sort()
     save_tasks(tasks)
 
+    task_entry.delete(0, tk.END)
+    due_date_entry.delete(0, tk.END)
     refresh_list()
 
-window = tk.Tk()
-window.title("study planner")
-window.geometry("500x400")
-
-due_label = tk.Label(window, text="Due Date (YYYY-MM-DD)")
-due_label.pack()
-
-due_entry = tk.Entry(window)
-due_entry.pack()
-
-task_entry = tk.Entry(window)
-task_entry.pack()
-
-add_button = tk.Button(window, text="Add Task")
+add_button = tk.Button(window, text="Add Task", command=add_task_gui)
 add_button.pack()
 
 complete_button = tk.Button(
@@ -66,8 +77,6 @@ complete_button = tk.Button(
     text="Complete Task",
     command=complete_task_gui
 )
-
-task_list = tk.Listbox(window)
-task_list.pack(fill="both", expand=True)
+complete_button.pack()
               
 window.mainloop()
