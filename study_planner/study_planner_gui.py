@@ -3,7 +3,7 @@ from datetime import datetime
 import os
 from tkinter import messagebox
 
-# Set appearance mode
+# Dark Mode
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue")
 
