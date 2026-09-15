@@ -1,29 +1,45 @@
 import customtkinter as ctk
 from datetime import datetime
 import os
+import json
 from tkinter import messagebox
 
 # Dark Mode
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue")
 
+TASKS_FILE = "tasks.json"
+
 def save_tasks(tasks):
-    with open("tasks.txt", "w") as file:
-        for task in tasks:
-            file.write(task + "\n")
+    """Save tasks to JSON file"""
+    try:
+        with open(TASKS_FILE, "w") as file:
+            json.dump(tasks, file, indent=2)
+    except Exception as e:
+        messagebox.showerror("Error", f"Failed to save tasks: {str(e)}")
 
 def load_tasks():
+    """Load tasks from JSON file"""
     tasks = []
-    if os.path.exists("tasks.txt"):
-        with open("tasks.txt", "r") as file:
-            for line in file:
-                tasks.append(line.strip())
+    if os.path.exists(TASKS_FILE):
+        try:
+            with open(TASKS_FILE, "r") as file:
+                tasks = json.load(file)
+        except (json.JSONDecodeError, FileNotFoundError):
+            tasks = []
     return tasks
 
 def format_task_display(task):
     """Format task with days remaining or overdue status"""
     try:
-        date_part = task.split(" - ")[0]
+        # Handle both old string format and new dict format
+        if isinstance(task, dict):
+            date_part = task.get("due_date", "")
+            task_text = task.get("title", "")
+        else:
+            date_part = task.split(" - ")[0]
+            task_text = " - ".join(task.split(" - ")[1:])
+        
         due_date = datetime.strptime(date_part, "%Y-%m-%d")
         today = datetime.today()
         days_diff = (due_date - today).days
@@ -35,8 +51,10 @@ def format_task_display(task):
         else:
             status = f"({days_diff} days left)"
         
-        return f"{task} {status}"
+        return f"{date_part} - {task_text} {status}"
     except Exception as e:
+        if isinstance(task, dict):
+            return f"{task.get('due_date', 'N/A')} - {task.get('title', 'N/A')}"
         return task
 
 # Create main window
@@ -113,8 +131,16 @@ def add_task_gui():
         messagebox.showerror("Error", "Invalid date format. Use YYYY-MM-DD.")
         return
     
-    tasks.append(f"{due_date} - {task}")
-    tasks.sort()
+    # Create task as dictionary
+    new_task = {
+        "due_date": due_date,
+        "title": task,
+        "created_at": datetime.now().isoformat()
+    }
+    
+    tasks.append(new_task)
+    # Sort by due_date
+    tasks.sort(key=lambda x: x["due_date"])
     save_tasks(tasks)
     
     task_entry.delete(0, "end")
