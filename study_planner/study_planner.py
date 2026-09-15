@@ -1,36 +1,65 @@
 from datetime import datetime
+import json
+import os
+
+TASKS_FILE = "tasks.json"
+
 def clear_tasks(tasks):
     tasks.clear()
     save_tasks(tasks)
     print("All tasks removed.")
+
 def load_tasks():
+    """Load tasks from JSON file"""
     tasks = []
-
-    file = open("tasks.txt", "r")
-
-    for line in file:
-        tasks.append(line.strip())
-
-    file.close()
-
+    if os.path.exists(TASKS_FILE):
+        try:
+            with open(TASKS_FILE, "r") as file:
+                tasks = json.load(file)
+        except (json.JSONDecodeError, FileNotFoundError):
+            tasks = []
     return tasks
-tasks = load_tasks()
+
 def add_task(tasks):
     task = input("Enter task: ")
     due_date = input("Due date (YYYY-MM-DD): ")
-    tasks.append(f"{due_date} - {task}")
-    tasks.sort()
+    
+    # Validate date format
+    try:
+        datetime.strptime(due_date, "%Y-%m-%d")
+    except ValueError:
+        print("Invalid date format. Use YYYY-MM-DD.")
+        return
+    
+    new_task = {
+        "due_date": due_date,
+        "title": task,
+        "created_at": datetime.now().isoformat()
+    }
+    tasks.append(new_task)
+    tasks.sort(key=lambda x: x["due_date"])
     save_tasks(tasks)
+    print("Task added successfully!")
+
 def view_tasks(tasks):
     if len(tasks) == 0:
         print("No tasks available.")
     else:
         today = datetime.today()
         for i in range(len(tasks)):
-            date_part = tasks[i].split(" - ")[0]
-            due_date = datetime.strptime(date_part, "%Y-%m-%d")
+            task = tasks[i]
+            due_date = datetime.strptime(task["due_date"], "%Y-%m-%d")
             days_left = (due_date - today).days
-            print(f"{i + 1}. {tasks[i]} ({days_left} days left)")
+            
+            if days_left < 0:
+                status = f"OVERDUE by {abs(days_left)} days"
+            elif days_left == 0:
+                status = "Due TODAY"
+            else:
+                status = f"{days_left} days left"
+            
+            print(f"{i + 1}. {task['due_date']} - {task['title']} ({status})")
+
 def complete_tasks(tasks):
     comptask = int(input("What is the number of the completed task? ")) - 1
 
@@ -40,13 +69,17 @@ def complete_tasks(tasks):
         print("Task removed. Well done!")
     else:
         print("Invalid task number.")
+
 def save_tasks(tasks):
-    file = open("tasks.txt", "w")
+    """Save tasks to JSON file"""
+    try:
+        with open(TASKS_FILE, "w") as file:
+            json.dump(tasks, file, indent=2)
+    except Exception as e:
+        print(f"Error saving tasks: {str(e)}")
 
-    for task in tasks:
-        file.write(task + "\n")
+tasks = load_tasks()
 
-    file.close()
 while True:
     print("--- Study Planner ---")
     print("1. Add Task")
