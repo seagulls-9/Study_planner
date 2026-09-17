@@ -16,10 +16,34 @@ ctk.set_default_color_theme("blue")
 TASKS_FILE = "tasks.json"
 SUBJECTS_FILE = "subjects.json"
 PMT_BASE_URL = "https://www.physicsandmathstutor.com"
+
+# The ID is the short internal key used to connect homework to a subject.
+# The name is the friendly name displayed to the user.
+PMT_SUBJECTS = {
+    "Maths": "maths",
+    "Further Maths": "further-maths",
+    "Biology": "biology",
+    "Chemistry": "chemistry",
+    "Physics": "physics",
+    "Economics": "economics",
+    "Geography": "geography",
+    "English Literature": "english-literature",
+    "Psychology": "psychology",
+    "Computer Science": "computer-science",
+}
+
+# Existing PMT paths for the sciences/maths and the A-level board paths used by
+# the other revision sections. Computer Science has its own PMT URL format.
 PMT_SUBJECT_PATHS = {
-    "maths": "maths/a-level", "mathematics": "maths/a-level",
-    "biology": "biology/a-level", "chemistry": "chemistry/a-level",
+    "maths": "maths/a-level",
+    "further-maths": "maths/a-level/further-maths",
+    "biology": "biology/a-level",
+    "chemistry": "chemistry/a-level",
     "physics": "physics/a-level",
+    "economics": "economics-revision",
+    "geography": "geography-revision",
+    "english-literature": "english-literature-revision",
+    "psychology": "psychology-revision",
 }
 PMT_BOARD_PATHS = {
     "AQA": "aqa", "Edexcel": "edexcel", "OCR": "ocr",
@@ -27,6 +51,7 @@ PMT_BOARD_PATHS = {
     "WJEC": "wjec", "Eduqas": "eduqas",
 }
 PMT_BOARDS = tuple(PMT_BOARD_PATHS.keys())
+PMT_SUBJECT_NAMES = tuple(PMT_SUBJECTS.keys())
 
 
 def make_id(value):
@@ -34,11 +59,19 @@ def make_id(value):
 
 
 def pmt_page_url(subject, exam_board):
-    subject_path = PMT_SUBJECT_PATHS.get(make_id(subject))
-    board_path = PMT_BOARD_PATHS.get(str(exam_board).strip())
+    subject_id = make_id(subject)
+    board = str(exam_board).strip()
+    board_path = PMT_BOARD_PATHS.get(board)
+    if subject_id == "computer-science":
+        computer_paths = {"AQA": "a-level-aqa", "OCR": "a-level-ocr"}
+        path = computer_paths.get(board)
+        return f"{PMT_BASE_URL}/computer-science-revision/{path}/" if path else None
+    subject_path = PMT_SUBJECT_PATHS.get(subject_id)
     if not subject_path or not board_path:
         return None
-    return f"{PMT_BASE_URL}/{subject_path}/{board_path}/"
+    if subject_id in {"maths", "biology", "chemistry", "physics", "further-maths"}:
+        return f"{PMT_BASE_URL}/{subject_path}/{board_path}/"
+    return f"{PMT_BASE_URL}/{subject_path}/a-level-{board_path}/"
 
 
 class PMTTopicParser(HTMLParser):
@@ -78,7 +111,7 @@ class PMTTopicParser(HTMLParser):
 def fetch_pmt_topics(subject, exam_board):
     page_url = pmt_page_url(subject, exam_board)
     if not page_url:
-        raise ValueError("Choose a supported A-level subject and exam board.")
+        raise ValueError("Choose a supported PMT subject and exam board.")
     request = Request(page_url, headers={"User-Agent": "StudyPlanner/1.0"})
     with urlopen(request, timeout=15) as response:
         parser = PMTTopicParser(page_url)
@@ -173,7 +206,7 @@ ctk.CTkLabel(input_frame, text="Due Date (YYYY-MM-DD)").grid(row=0, column=0, st
 due_date_entry = ctk.CTkEntry(input_frame, width=180)
 due_date_entry.grid(row=0, column=1, padx=5, pady=5)
 ctk.CTkLabel(input_frame, text="Subject ID").grid(row=0, column=2, sticky="w", padx=5, pady=5)
-subject_id_entry = ctk.CTkEntry(input_frame, width=180, placeholder_text="e.g. maths")
+subject_id_entry = ctk.CTkEntry(input_frame, width=180, placeholder_text="e.g. computer-science")
 subject_id_entry.grid(row=0, column=3, padx=5, pady=5)
 ctk.CTkLabel(input_frame, text="Homework").grid(row=1, column=0, sticky="w", padx=5, pady=5)
 task_entry = ctk.CTkEntry(input_frame, width=570, placeholder_text="Homework title")
@@ -181,15 +214,16 @@ task_entry.grid(row=1, column=1, columnspan=3, sticky="ew", padx=5, pady=5)
 
 subject_form = ctk.CTkFrame(subjects_tab)
 subject_form.pack(fill="x", padx=10, pady=10)
-ctk.CTkLabel(subject_form, text="Subject ID").grid(row=0, column=0, padx=5, pady=5)
-new_subject_id = ctk.CTkEntry(subject_form, width=160, placeholder_text="e.g. maths")
+ctk.CTkLabel(subject_form, text="Subject ID (short key)").grid(row=0, column=0, padx=5, pady=5)
+new_subject_id = ctk.CTkEntry(subject_form, width=160, placeholder_text="e.g. computer-science")
 new_subject_id.grid(row=0, column=1, padx=5, pady=5)
-ctk.CTkLabel(subject_form, text="Subject name").grid(row=0, column=2, padx=5, pady=5)
-new_subject_name = ctk.CTkEntry(subject_form, width=180, placeholder_text="e.g. Physics")
+ctk.CTkLabel(subject_form, text="Subject name (display name)").grid(row=0, column=2, padx=5, pady=5)
+new_subject_name = ctk.CTkOptionMenu(subject_form, values=list(PMT_SUBJECT_NAMES), width=180)
+new_subject_name.set(PMT_SUBJECT_NAMES[0])
 new_subject_name.grid(row=0, column=3, padx=5, pady=5)
+ctk.CTkLabel(subject_form, text="ID: link used by homework; name: readable label").grid(
+    row=0, column=5, columnspan=2, sticky="w", padx=5, pady=5)
 ctk.CTkLabel(subject_form, text="Exam board").grid(row=1, column=0, padx=5, pady=5)
-# CTkOptionMenu is used deliberately: it avoids the invalid-value error from
-# older CustomTkinter versions when a CTkComboBox is given a default value.
 exam_board_choice = ctk.CTkOptionMenu(subject_form, values=list(PMT_BOARDS), width=160)
 exam_board_choice.set(PMT_BOARDS[0])
 exam_board_choice.grid(row=1, column=1, padx=5, pady=5)
@@ -201,6 +235,15 @@ new_subject_links = ctk.CTkTextbox(subject_form, width=340, height=55)
 new_subject_links.grid(row=2, column=1, columnspan=2, padx=5, pady=5)
 subject_sections = ctk.CTkScrollableFrame(subjects_tab, label_text="Your subjects")
 subject_sections.pack(fill="both", expand=True, padx=10, pady=10)
+
+
+def update_subject_id(selected_name):
+    new_subject_id.delete(0, "end")
+    new_subject_id.insert(0, PMT_SUBJECTS.get(selected_name, make_id(selected_name)))
+
+
+new_subject_name.configure(command=update_subject_id)
+update_subject_id(new_subject_name.get())
 
 
 def refresh_task_list():
@@ -257,13 +300,13 @@ def add_subject_gui():
     sid, name = make_id(new_subject_id.get().strip()), new_subject_name.get().strip()
     board = str(exam_board_choice.get()).strip()
     if not sid or not name:
-        messagebox.showerror("Error", "Please enter a subject ID and name.")
+        messagebox.showerror("Error", "Please choose a subject name and enter its subject ID.")
         return
     if any(s.get("id") == sid for s in subjects):
         messagebox.showerror("Error", "That subject ID already exists.")
         return
-    if board not in PMT_BOARD_PATHS or not pmt_page_url(name, board):
-        messagebox.showerror("Error", "Use Maths, Biology, Chemistry or Physics and a supported exam board.")
+    if not pmt_page_url(name, board):
+        messagebox.showerror("Error", "Choose a subject and a supported exam board.")
         return
     status_label.configure(text="Fetching PMT topics...")
     add_subject_button.configure(state="disabled")
@@ -290,7 +333,7 @@ def complete_subject_add(sid, name, board, topics, url, error):
                      "notes": new_subject_notes.get().strip(), "links": links,
                      "topics": topics, "pmt_url": url})
     save_json(SUBJECTS_FILE, subjects)
-    for entry in (new_subject_id, new_subject_name, new_subject_notes):
+    for entry in (new_subject_id, new_subject_notes):
         entry.delete(0, "end")
     new_subject_links.delete("1.0", "end")
     status_label.configure(text=f"Added {len(topics)} PMT topics")
@@ -309,6 +352,8 @@ def refresh_subject_sections():
         section.pack(fill="x", padx=5, pady=6)
         ctk.CTkLabel(section, text=f"{subject.get('name', 'Subject')}  ({subject.get('exam_board') or 'No board'})",
                      font=("Arial", 16, "bold")).pack(anchor="w", padx=10, pady=(8, 2))
+        ctk.CTkLabel(section, text=f"Subject ID: {subject.get('id', '')}",
+                     text_color="#aaaaaa").pack(anchor="w", padx=10)
         ctk.CTkLabel(section, text=f"Notes: {subject.get('notes') or 'None'}",
                      wraplength=760, justify="left").pack(anchor="w", padx=10)
         topics = subject.get("topics", [])
