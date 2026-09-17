@@ -3,8 +3,12 @@ from datetime import datetime
 import json
 import os
 import re
+import threading
 import webbrowser
+from html.parser import HTMLParser
 from tkinter import messagebox
+from urllib.parse import urljoin, urlparse
+from urllib.request import Request, urlopen
 
 # Dark Mode
 ctk.set_appearance_mode("dark")
@@ -12,6 +16,85 @@ ctk.set_default_color_theme("blue")
 
 TASKS_FILE = "tasks.json"
 SUBJECTS_FILE = "subjects.json"
+PMT_BASE_URL = "https://www.physicsandmathstutor.com"
+PMT_SUBJECT_PATHS = {
+    "maths": "maths/a-level",
+    "mathematics": "maths/a-level",
+    "biology": "biology/a-level",
+    "chemistry": "chemistry/a-level",
+    "physics": "physics/a-level",
+}
+PMT_BOARD_PATHS = {
+    "AQA": "aqa",
+    "Edexcel": "edexcel",
+    "OCR": "ocr",
+    "OCR A": "ocr-a",
+    "OCR B": "ocr-b",
+    "CIE": "cie",
+    "WJEC": "wjec",
+    "Eduqas": "eduqas",
+}
+
+
+class PMTTopicParser(HTMLParser):
+    """Extract likely topic links from a PMT subject/exam-board page."""
+
+    def __init__(self, page_url):
+        super().__init__()
+        self.page_url = page_url
+        self.links = []
+        self._current_link = None
+        self._text = []
+
+    def handle_starttag(self, tag, attrs):
+        if tag.lower() == "a":
+            href = dict(attrs).get("href", "")
+            self._current_link = href
+            self._text = []
+
+    def handle_data(self, data):
+        if self._current_link is not None:
+            self._text.append(data)
+
+    def handle_endtag(self, tag):
+        if tag.lower() != "a" or self._current_link is None:
+            return
+        text = " ".join("".join(self._text).split())
+        full_url = urljoin(self.page_url, self._current_link)
+        parsed = urlparse(full_url)
+        page_path = urlparse(self.page_url).path.rstrip("/")
+        link_path = parsed.path.rstrip("/")
+        ignored = {"", "home", "revision", "past papers", "mark schemes", "notes"}
+        if (parsed.netloc == urlparse(self.page_url).netloc
+                and link_path.startswith(page_path)
+                and text
+                and text.casefold() not in ignored
+                and not link_path.lower().endswith((".pdf", ".doc", ".docx"))
+                and full_url not in {item["url"] for item in self.links}):
+            self.links.append({"name": text, "notes": "", "url": full_url})
+        self._current_link = None
+        self._text = []
+
+
+def pmt_page_url(subject, exam_board):
+    subject_path = PMT_SUBJECT_PATHS.get(make_id(subject).replace("-", ""))
+    board_path = PMT_BOARD_PATHS.get(exam_board)
+    if not subject_path or not board_path:
+        return None
+    return f"{PMT_BASE_URL}/{subject_path}/{board_path}/"
+
+
+def fetch_pmt_topics(subject, exam_board):
+    page_url = pmt_page_url(subject, exam_board)
+    if not page_url:
+        raise ValueError("PMT currently supports Maths, Biology, Chemistry and Physics for these boards.")
+    request = Request(page_url, headers={"User-Agent": "StudyPlanner/1.0"})
+    with urlopen(request, timeout=15) as response:
+        parser = PMTTopicParser(page_url)
+        parser.feed(response.read().decode("utf-8", errors="ignore"))
+    if not parser.links:
+        raise ValueError("No topic links were found on the PMT page.")
+    return parser.links, page_url
 
 
 def load_json(filename, default):
@@ -56,6 +139,8 @@ def load_subjects():
         subject.setdefault("topics", [])
         subject.setdefault("notes", "")
         subject.setdefault("links", [])
+        subject.setdefault("exam_board", "")
+        subject.setdefault("pmt_url", "")
     return subjects
 
 
@@ -145,9 +230,13 @@ new_subject_id.grid(row=0, column=1, padx=5, pady=5)
 ctk.CTkLabel(subject_form, text="Subject name").grid(row=0, column=2, padx=5, pady=5)
 new_subject_name = ctk.CTkEntry(subject_form, width=180)
 new_subject_name.grid(row=0, column=3, padx=5, pady=5)
-ctk.CTkLabel(subject_form, text="Notes").grid(row=1, column=0, padx=5, pady=5)
-new_subject_notes = ctk.CTkEntry(subject_form, width=340, placeholder_text="Subject notes")
-new_subject_notes.grid(row=1, column=1, columnspan=2, padx=5, pady=5)
+ctk.CTkLabel(subject_form, text="Exam board").grid(row=1, column=0, padx=5, pady=5)
+exam_board_choice = ctk.CTkComboBox(subject_form, values=list(PMT_BOARD_PATHS), width=160)
+exam_board_choice.set("AQA")
+exam_board_choice.grid(row=1, column=1, padx=5, pady=5)
+ctk.CTkLabel(subject_form, text="Notes").grid(row=1, column=2, padx=5, pady=5)
+new_subject_notes = ctk.CTkEntry(subject_form, width=180, placeholder_text="Subject notes")
+new_subject_notes.grid(row=1, column=3, padx=5, pady=5)
 ctk.CTkLabel(subject_form, text="Links (one per line)").grid(row=2, column=0, padx=5, pady=5)
 new_subject_links = ctk.CTkTextbox(subject_form, width=340, height=55)
 new_subject_links.grid(row=2, column=1, columnspan=2, padx=5, pady=5)
@@ -165,8 +254,8 @@ def refresh_task_list():
 
 
 def refresh_subject_choices():
-    values = [subject["id"] for subject in subjects] or ["No subjects yet"]
-    subject_id_entry.configure(values=values) if hasattr(subject_id_entry, "configure") else None
+    # Kept for compatibility with the existing text-entry homework form.
+    return None
 
 
 def add_task_gui():
@@ -218,21 +307,48 @@ def clear_all_tasks():
 def add_subject_gui():
     subject_id = make_id(new_subject_id.get().strip())
     name = new_subject_name.get().strip()
+    exam_board = exam_board_choice.get().strip()
     if not subject_id or not name:
-        messagebox.showerror("Error", "Please enter both a subject ID and name.")
+        messagebox.showerror("Error", "Please enter a subject ID and name.")
         return
     if any(subject["id"] == subject_id for subject in subjects):
         messagebox.showerror("Error", "That subject ID already exists.")
         return
+    if not pmt_page_url(name, exam_board):
+        messagebox.showerror("Error", "Use Maths, Biology, Chemistry or Physics as the subject name.")
+        return
+
+    status_label.configure(text="Fetching PMT topics...")
+    add_subject_button.configure(state="disabled")
+    threading.Thread(target=finish_subject_add, args=(subject_id, name, exam_board), daemon=True).start()
+
+
+def finish_subject_add(subject_id, name, exam_board):
+    try:
+        topics, pmt_url = fetch_pmt_topics(name, exam_board)
+        error = None
+    except Exception as caught_error:
+        topics, pmt_url, error = [], pmt_page_url(name, exam_board), caught_error
+    window.after(0, complete_subject_add, subject_id, name, exam_board, topics, pmt_url, error)
+
+
+def complete_subject_add(subject_id, name, exam_board, topics, pmt_url, error):
+    add_subject_button.configure(state="normal")
+    if error:
+        status_label.configure(text="Could not fetch PMT topics")
+        if not messagebox.askyesno("PMT unavailable", f"{error}\n\nAdd the subject without topics?"):
+            return
     links = [link.strip() for link in new_subject_links.get("1.0", "end").splitlines() if link.strip()]
-    subjects.append({"id": subject_id, "name": name, "notes": new_subject_notes.get().strip(),
-                     "links": links, "topics": []})
+    subjects.append({"id": subject_id, "name": name, "exam_board": exam_board,
+                     "notes": new_subject_notes.get().strip(), "links": links,
+                     "topics": topics, "pmt_url": pmt_url})
     save_subjects(subjects)
     for entry in (new_subject_id, new_subject_name, new_subject_notes):
         entry.delete(0, "end")
     new_subject_links.delete("1.0", "end")
+    status_label.configure(text=f"Added {len(topics)} PMT topics")
     refresh_subject_sections()
-    messagebox.showinfo("Success", f"Subject '{name}' added.")
+    messagebox.showinfo("Success", f"Subject '{name}' added with {len(topics)} PMT topics.")
 
 
 def refresh_subject_sections():
@@ -244,21 +360,25 @@ def refresh_subject_sections():
     for subject in subjects:
         section = ctk.CTkFrame(subject_sections)
         section.pack(fill="x", padx=5, pady=6)
-        ctk.CTkLabel(section, text=f"{subject['name']}  (ID: {subject['id']})",
+        ctk.CTkLabel(section, text=f"{subject['name']}  ({subject.get('exam_board') or 'No board'})",
                      font=("Arial", 16, "bold")).pack(anchor="w", padx=10, pady=(8, 2))
         ctk.CTkLabel(section, text=f"Notes: {subject.get('notes') or 'None'}",
                      wraplength=760, justify="left").pack(anchor="w", padx=10)
-        links = subject.get("links", [])
-        ctk.CTkLabel(section, text="Links: " + (" | ".join(links) if links else "None"),
-                     wraplength=760, justify="left").pack(anchor="w", padx=10)
         topics = subject.get("topics", [])
-        topic_text = "Topics: " + ("; ".join(f"{topic['name']} ({topic.get('notes') or 'no notes'})" for topic in topics)
-                                     if topics else "None")
-        ctk.CTkLabel(section, text=topic_text, wraplength=760, justify="left").pack(anchor="w", padx=10, pady=(2, 8))
+        topic_text = "Topics: " + ("; ".join(topic.get("name", "Unnamed topic") for topic in topics)
+                                   if topics else "None")
+        ctk.CTkLabel(section, text=topic_text, wraplength=760, justify="left").pack(anchor="w", padx=10, pady=(2, 2))
+        if subject.get("pmt_url"):
+            pmt_link = ctk.CTkLabel(section, text="Open PMT page", text_color="#55aaff", cursor="hand2")
+            pmt_link.pack(anchor="w", padx=10, pady=(0, 8))
+            pmt_link.bind("<Button-1>", lambda _, url=subject["pmt_url"]: webbrowser.open(url))
 
 
 # Buttons and lists
-ctk.CTkButton(subject_form, text="Add Subject", command=add_subject_gui, width=140).grid(row=0, column=4, rowspan=3, padx=10)
+add_subject_button = ctk.CTkButton(subject_form, text="Add Subject", command=add_subject_gui, width=140)
+add_subject_button.grid(row=0, column=4, rowspan=3, padx=10)
+status_label = ctk.CTkLabel(subjects_tab, text="")
+status_label.pack(pady=(0, 2))
 ctk.CTkButton(subjects_tab, text="Refresh subject sections", command=refresh_subject_sections).pack(pady=(0, 8))
 
 task_list = ctk.CTkTextbox(home_tab, height=300, font=("Arial", 11))
