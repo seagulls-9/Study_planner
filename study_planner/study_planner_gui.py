@@ -6,7 +6,7 @@ import re
 import threading
 import webbrowser
 from html.parser import HTMLParser
-from tkinter import messagebox
+from tkinter import TclError, messagebox
 from urllib.parse import urljoin, urlparse
 from urllib.request import Request, urlopen
 
@@ -242,7 +242,7 @@ def complete_task_gui():
         tasks.pop(number)
         save_json(TASKS_FILE, tasks)
         refresh_task_list()
-    except (ValueError, ctk.TclError):
+    except (ValueError, TclError):
         messagebox.showwarning("Warning", "Please select a homework item to complete.")
 
 
