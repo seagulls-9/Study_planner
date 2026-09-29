@@ -1,76 +1,24 @@
-# Study Planner 📚
+# Study Planner
 
-A Python task manager for students. Keep track of your assignments, projects, and study goals with automatic deadline tracking.
+A student study planner with two separate interfaces powered by one shared core.
 
-**Two versions:** CLI for quick access, modern GUI for daily use.
-
-## Features
-
-- ✅ Add tasks with due dates
-- ✅ See days remaining (or overdue alerts)
-- ✅ Mark tasks as done
-- ✅ Auto-sorts by deadline
-- ✅ Everything saves automatically
-
-## Quick Start
-
-### GUI Version (Recommended)
+## Run it
 
 ```bash
-pip install customtkinter
-python study_planner/study_planner_gui.py
+pip install -r requirements.txt
+python -m study_planner.cli
+python -m study_planner.study_planner_gui
 ```
 
-Just fill in your task and due date, click "Add Task", and you're done. Tasks show how many days you have left.
+The terminal and GUI versions use the same `tasks.json` and `subjects.json` files. The shared code demonstrates separation of concerns:
 
-### CLI Version
+- `models.py` — validated domain models
+- `storage.py` — atomic JSON persistence and migration of older task data
+- `service.py` — business rules used by both interfaces
+- `pmt_service.py` — PMT URL generation, parsing and retry logic
+- `cli.py` — terminal interface
+- `study_planner_gui.py` — CustomTkinter interface
 
-```bash
-python study_planner/study_planner.py
-```
+## Quality features
 
-Menu-based interface. Choose 1-5 to manage your tasks.
-
-## How It Works
-
-1. **Add a task** → enter description + due date (YYYY-MM-DD)
-2. **View tasks** → see everything sorted by deadline with days remaining
-3. **Complete task** → select it and mark as done
-4. **That's it** → everything syncs to `tasks.txt`
-
-## Task Display
-
-```
-1. 2024-12-25 - Study Python (10 days left)
-2. 2024-12-20 - Complete Assignment (OVERDUE by 5 days)
-3. 2024-12-30 - Review Notes (Due TODAY)
-```
-
-## What I Learned
-
-Building this taught me:
-- File I/O and data persistence
-- Date handling and calculations
-- GUI development with tkinter & CustomTkinter
-- Input validation and error handling
-- CLI design patterns
-- Clean code organization
-
-## Tech Stack
-
-- Python 3.7+
-- CustomTkinter (modern GUI)
-- Datetime (for scheduling)
-- Plain text storage (simple & reliable)
-
-## Future Ideas
-
-- Task priorities
-- Categories (Math, English, etc.)
-- Notifications
-- Dark/light theme toggle
-- Mobile app
-
----
-
-Made by [@seagulls-9](https://github.com/seagulls-9) while learning Python 🚀
+The project includes type hints, dataclasses, validation, logging, atomic writes, network retries, and a clear separation between presentation and application logic. This makes it easier to test and extend than putting all behaviour inside the GUI callbacks.
