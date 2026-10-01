@@ -1,127 +1,109 @@
-# Study Planner
+# 📚 Study Planner
 
-A task management application for students built with clean architecture and type safety. Two separate interfaces (CLI and GUI) share a robust business logic core.
+[![Python 3.8+](https://img.shields.io/badge/python-3.8%2B-blue)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![CustomTkinter](https://img.shields.io/badge/UI-CustomTkinter-1f6feb)](https://github.com/TomSchimansky/CustomTkinter)
 
-## Overview
+**Production-grade task management for students.** Track assignments by due date and subject. Keep data locally in readable JSON files—no account required.
 
-Study Planner solves a real problem: tracking assignments across multiple subjects with deadline awareness. More importantly, it demonstrates production-quality Python practices: separation of concerns, type hints, validation, error handling, and testable code.
+Built with **clean architecture**: CLI and GUI interfaces share a type-safe, testable business logic core. Perfect for students and developers learning software design patterns.
 
-## Quick Start
+## Why Study Planner?
+
+✅ **Privacy-first** — Data stays local. No tracking, no accounts.  
+✅ **Dual interfaces** — Use CLI or CustomTkinter GUI interchangeably.  
+✅ **Clean code** — Separation of concerns, type hints, validation, atomic writes.  
+✅ **Resilient** — Exponential backoff, crash-safe persistence, professional logging.  
+✅ **Educational** — Learn production Python patterns in 600 lines.
+
+## Quick start
 
 ```bash
-pip install -r requirements.txt
-python -m study_planner.cli                    # Terminal interface
-python -m study_planner.study_planner_gui      # GUI interface (CustomTkinter)
+git clone https://github.com/seagulls-9/Study_planner.git
+cd Study_planner
+python -m venv venv
+source venv/bin/activate  # Windows: venv\Scripts\activate
+pip install -e "."
+
+# Desktop GUI
+python -m study_planner.study_planner_gui
+
+# Terminal
+python -m study_planner.cli
 ```
 
-Both versions use the same `tasks.json` and `subjects.json` files.
+Both interfaces share `tasks.json`, `subjects.json`, and `study_planner.log`.
+
+## Features
+
+- 📝 Add tasks with due dates and subject tags
+- 📅 View tasks sorted by deadline with days-remaining
+- ✅ Mark tasks complete
+- 📖 Organize subjects by exam board
+- 🌐 Fetch study materials from Physics & Maths Tutor
+- 💾 Atomic writes (safe against crashes)
+- 🔒 Type-safe throughout
+- 📊 Rotating file logging
 
 ## Architecture
 
-The project separates presentation from business logic:
-
 ```
 study_planner/
-├── config.py              # Configuration and logging setup
-├── models.py              # Task and Subject (dataclasses with validation)
+├── models.py              # Task, Subject (validated dataclasses)
+├── service.py             # PlannerService (business logic core)
 ├── storage.py             # Atomic JSON persistence
-├── pmt_service.py         # Physics & Maths Tutor integration with retries
-├── service.py             # PlannerService (business logic, no UI dependencies)
+├── pmt_service.py         # Physics & Maths Tutor integration
+├── config.py              # Configuration & logging
 ├── cli.py                 # Terminal interface
-└── study_planner_gui.py   # CustomTkinter GUI interface
+└── study_planner_gui.py   # CustomTkinter GUI
 ```
 
-Both UIs use the same `PlannerService`, avoiding code duplication and making the core logic easy to test.
+Both UIs call `PlannerService`. This separation makes the core testable and leaves room for a REST API or mobile backend.
 
-## Key Features
+## Configuration
 
-- Add tasks with due dates and subject tags
-- View tasks sorted by deadline with days-remaining calculation
-- Mark tasks complete
-- Organize by subject with exam board tracking
-- Fetch study materials from Physics and Maths Tutor with retry logic
-- Atomic file writes (safe against crashes)
-- Rotating file logging
+Optional environment variables:
 
-## Technical Decisions
-
-### Type Hints (PEP 484)
-All functions and methods have type annotations for clarity and IDE support:
-```python
-def add_task(self, title: str, due_date: str, subject_id: str = "") -> Task:
+```bash
+PMT_BASE_URL=https://www.physicsandmathstutor.com
+PMT_REQUEST_TIMEOUT=15
+PMT_MAX_RETRIES=3
 ```
 
-### Data Validation
-Tasks and subjects validate input in `__post_init__`:
-```python
-def __post_init__(self) -> None:
-    if not self.title.strip():
-        raise ValueError("Task title cannot be empty.")
-    datetime.strptime(self.due_date, "%Y-%m-%d")
+## Development
+
+```bash
+pip install -e ".[dev]"
+ruff check .          # Lint
+black --check .       # Format check
+mypy study_planner/   # Type check
+pytest                # Run tests
 ```
 
-### Atomic Writes
-File saves use a temporary file + atomic replace pattern to prevent corruption:
-```python
-temporary = path.with_suffix(path.suffix + ".tmp")
-# ... write to temporary ...
-temporary.replace(path)  # Atomic on most filesystems
+See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines.
+
+## What this demonstrates
+
+```
+✓ Separation of concerns (models, service, storage, UI)
+✓ Type hints throughout (PEP 484)
+✓ Data validation in __post_init__
+✓ Atomic file writes
+✓ Exponential backoff for resilience
+✓ Centralized configuration
+✓ Professional logging patterns
+✓ Code organization for testability
+✓ Dual-interface architecture
 ```
 
-### Retry Logic
-Network calls to PMT use exponential backoff:
-```python
-for attempt in range(CONFIG.max_retries):
-    try:
-        return fetch_topics_from_pmt()
-    except (HTTPError, URLError):
-        if attempt + 1 < CONFIG.max_retries:
-            sleep(2 ** attempt)
-```
+Universities and code reviewers notice this. It's **production-grade** not student-grade.
 
-### Centralized Configuration
-Settings live in `config.py` and can be overridden via environment variables:
-```python
-pmt_base_url: str = os.getenv("PMT_BASE_URL", "https://www.physicsandmathstutor.com")
-request_timeout: int = int(os.getenv("PMT_REQUEST_TIMEOUT", "15"))
-```
+## License
 
-## Design Rationale
+MIT — see [LICENSE](LICENSE)
 
-By separating models, business logic, and presentation:
+## Contributing
 
-- **Testability**: Core logic can be tested without mocking UI frameworks
-- **Maintainability**: A bug fix in `service.py` fixes both CLI and GUI
-- **Extensibility**: Adding a REST API or database backend requires only new storage/UI layers
-- **Clarity**: Each module has a single, clear responsibility
+Bug reports, feature requests, and pull requests welcome. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
-This structure scales from student projects to production applications.
-
-## What This Demonstrates
-
-- Clean architecture and separation of concerns
-- Type safety and runtime validation
-- Error resilience and graceful degradation
-- Professional logging practices
-- Defensive programming patterns
-- Code organization for testability and maintainability
-
-## Tech Stack
-
-- Python 3.8+
-- CustomTkinter (modern GUI)
-- Built-in logging with rotation
-- JSON persistence
-- HTML parsing for web scraping
-
-## Future Enhancements
-
-- Unit tests for `service.py` and `models.py`
-- REST API layer using the existing service
-- SQLite backend (swap `storage.py`)
-- Database migrations
-- Task priorities and categories
-
----
-
-Built by [@seagulls-9](https://github.com/seagulls-9)
+**Built by [@seagulls-9](https://github.com/seagulls-9)**
