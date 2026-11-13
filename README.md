@@ -1,109 +1,67 @@
-# 📚 Study Planner
+# Study Planner
 
-[![Python 3.8+](https://img.shields.io/badge/python-3.8%2B-blue)](https://www.python.org/downloads/)
-[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![CustomTkinter](https://img.shields.io/badge/UI-CustomTkinter-1f6feb)](https://github.com/TomSchimansky/CustomTkinter)
-
-**Production-grade task management for students.** Track assignments by due date and subject. Keep data locally in readable JSON files—no account required.
-
-Built with **clean architecture**: CLI and GUI interfaces share a type-safe, testable business logic core. Perfect for students and developers learning software design patterns.
-
-## Why Study Planner?
-
-✅ **Privacy-first** — Data stays local. No tracking, no accounts.  
-✅ **Dual interfaces** — Use CLI or CustomTkinter GUI interchangeably.  
-✅ **Clean code** — Separation of concerns, type hints, validation, atomic writes.  
-✅ **Resilient** — Exponential backoff, crash-safe persistence, professional logging.  
-✅ **Educational** — Learn production Python patterns in 600 lines.
+A small Python app for keeping track of school assignments and revision subjects. Add assignments with due dates, group them by subject and exam board, and use the desktop app to fetch revision-topic links from Physics & Maths Tutor (PMT). It has a CustomTkinter desktop interface and a command-line interface.
 
 ## Quick start
 
 ```bash
 git clone https://github.com/seagulls-9/Study_planner.git
 cd Study_planner
-python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
-pip install -e "."
-
-# Desktop GUI
-python -m study_planner.study_planner_gui
-
-# Terminal
-python -m study_planner.cli
+python -m venv .venv
 ```
 
-Both interfaces share `tasks.json`, `subjects.json`, and `study_planner.log`.
+Activate the environment, then install and run either interface:
 
-## Features
+```bash
+# macOS/Linux
+source .venv/bin/activate
 
-- 📝 Add tasks with due dates and subject tags
-- 📅 View tasks sorted by deadline with days-remaining
-- ✅ Mark tasks complete
-- 📖 Organize subjects by exam board
-- 🌐 Fetch study materials from Physics & Maths Tutor
-- 💾 Atomic writes (safe against crashes)
-- 🔒 Type-safe throughout
-- 📊 Rotating file logging
+# Windows PowerShell
+.venv\Scripts\Activate.ps1
 
-## Architecture
-
-```
-study_planner/
-├── models.py              # Task, Subject (validated dataclasses)
-├── service.py             # PlannerService (business logic core)
-├── storage.py             # Atomic JSON persistence
-├── pmt_service.py         # Physics & Maths Tutor integration
-├── config.py              # Configuration & logging
-├── cli.py                 # Terminal interface
-└── study_planner_gui.py   # CustomTkinter GUI
+pip install -e .
+python -m study_planner.study_planner_gui  # Desktop app
+python -m study_planner.cli               # Command line
 ```
 
-Both UIs call `PlannerService`. This separation makes the core testable and leaves room for a REST API or mobile backend.
+The app keeps `tasks.json`, `subjects.json`, and `study_planner.log` in the project directory. Both interfaces use the same files.
+
+## What it does
+
+- Add assignments with a title, due date, and optional subject.
+- View assignments in due-date order and see how many days remain.
+- Mark assignments complete or clear the task list.
+- Add subjects with an exam board and notes.
+- In the desktop app, fetch topic links for supported subjects and boards from PMT. The links are shown with the subject; the app does not download the revision materials.
+
+## Data and PMT
+
+Tasks and subjects are stored as readable JSON files in the project directory. The app writes changes to a temporary file and then replaces the existing file. If a data file is unreadable or contains invalid JSON, the app logs a warning and starts with an empty list for that file. Keep a backup if the data matters to you.
+
+PMT topic fetching requires an internet connection and depends on the site's pages remaining compatible with the link parser. Requests use a timeout and retry failed attempts. If fetching fails, the subject remains saved, but its topic links may be empty. PMT content and availability are outside this project's control.
 
 ## Configuration
 
-Optional environment variables:
+These environment variables are optional:
 
-```bash
+```text
 PMT_BASE_URL=https://www.physicsandmathstutor.com
 PMT_REQUEST_TIMEOUT=15
 PMT_MAX_RETRIES=3
 ```
 
+`PMT_MAX_RETRIES` sets the number of request attempts. The default timeout is 15 seconds and the default is three attempts.
+
 ## Development
 
 ```bash
 pip install -e ".[dev]"
-ruff check .          # Lint
-black --check .       # Format check
-mypy study_planner/   # Type check
-pytest                # Run tests
+pytest
+ruff check .
+black --check .
+mypy study_planner/
 ```
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines.
-
-## What this demonstrates
-
-```
-✓ Separation of concerns (models, service, storage, UI)
-✓ Type hints throughout (PEP 484)
-✓ Data validation in __post_init__
-✓ Atomic file writes
-✓ Exponential backoff for resilience
-✓ Centralized configuration
-✓ Professional logging patterns
-✓ Code organization for testability
-✓ Dual-interface architecture
-```
-
-Universities and code reviewers notice this. It's **production-grade** not student-grade.
 
 ## License
 
-MIT — see [LICENSE](LICENSE)
-
-## Contributing
-
-Bug reports, feature requests, and pull requests welcome. See [CONTRIBUTING.md](CONTRIBUTING.md).
-
-**Built by [@seagulls-9](https://github.com/seagulls-9)**
+MIT. See [LICENSE](LICENSE).

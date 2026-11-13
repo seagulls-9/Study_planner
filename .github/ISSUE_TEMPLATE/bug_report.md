@@ -1,30 +1,13 @@
 ---
-name: Bug Report
-about: Report a bug to help us improve Study Planner
-title: '[BUG] '
+name: Bug report
+about: Report a problem with the app
 labels: bug
-assignees: ''
-
 ---
 
-## Description
-A clear and concise description of the bug.
+What happened, and what did you expect?
 
-## Steps to Reproduce
-1. Step 1
-2. Step 2
-3. Step 3
+Steps to reproduce:
 
-## Expected Behavior
-What you expected to happen.
+Python version and operating system:
 
-## Actual Behavior
-What actually happened.
-
-## Environment
-- **Python version**: (e.g., 3.10)
-- **OS**: (e.g., Ubuntu 22.04, macOS, Windows)
-- **Interface**: CLI / GUI
-
-## Additional Context
-Any additional information that might be helpful.
+CLI or desktop app:
